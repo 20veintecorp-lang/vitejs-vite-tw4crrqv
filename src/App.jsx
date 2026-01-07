@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, increment, serverTimestamp, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { Plus, Minus, Search, Package, Users, History, LogOut, Trash2, Edit2, Save, X, Shield, Lock, LayoutGrid } from 'lucide-react';
+import { Plus, Minus, Search, Package, Users, History, LogOut, Trash2, Edit2, Save, X, Shield, Lock, LayoutGrid, Beaker, Droplet } from 'lucide-react';
 
 // --- CONFIGURACIÓN FIREBASE ---
 const firebaseConfig = {
@@ -21,7 +21,7 @@ const auth = getAuth(app);
 export default function App() {
   const [user, setUser] = useState(null); 
   const [view, setView] = useState('login'); 
-  const [activeTab, setActiveTab] = useState('todos'); // ¡AHORA INICIA EN TODOS!
+  const [activeTab, setActiveTab] = useState('todos'); 
   
   const [items, setItems] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -51,7 +51,6 @@ export default function App() {
     });
 
     let unsubUsers = () => {};
-    // Solo el ADMIN puede leer la lista de usuarios
     if (user.role === 'admin') {
       unsubUsers = onSnapshot(collection(db, "app_users"), (snap) => {
         setUsersList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -87,7 +86,6 @@ export default function App() {
     setLoading(false);
   };
 
-  // --- LÓGICA DE PERMISOS ---
   const canEdit = user?.role === 'admin' || user?.role === 'colaborador';
 
   // CREAR ITEM
@@ -99,13 +97,11 @@ export default function App() {
       await addDoc(collection(db, "products"), {
         name: newItem.name, type: newItem.type, unit: newItem.unit, stock: 0
       });
-      // Reseteamos siempre a 'envases' para evitar errores si estamos en la pestaña 'todos'
       setNewItem({ name: '', unit: 'grs', type: 'envases' }); 
       alert("Ítem creado correctamente");
     } catch (e) { alert("Error: " + e.message); }
   };
 
-  // ACTUALIZAR ITEM
   const handleUpdateItem = async (e) => {
     e.preventDefault();
     if (!editItem || !canEdit) return;
@@ -117,7 +113,6 @@ export default function App() {
     } catch (e) { alert("Error: " + e.message); }
   };
 
-  // TRANSACCIONES
   const handleTransaction = async (item, type) => {
     if (user.role === 'invitado') return alert("Solo lectura");
     
@@ -140,7 +135,6 @@ export default function App() {
     } catch (e) { alert("Error: " + e.message); }
   };
 
-  // GESTIÓN DE USUARIOS (SOLO ADMIN)
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
@@ -161,14 +155,13 @@ export default function App() {
     if (confirm("¿Borrar producto?")) await deleteDoc(doc(db, "products", id));
   };
 
-  // --- FILTRO MAESTRO ---
-  // Si activeTab es 'todos', pasa todo lo que coincida con el nombre. Si no, filtra por tipo.
+  // --- CORRECCIÓN DEL FILTRO ---
+  // Aquí estaba el problema. Ahora usamos (i.name || "") para que si no hay nombre, no explote.
   const filteredItems = items.filter(i => 
     (activeTab === 'todos' || i.type === activeTab) && 
-    i.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (i.name || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // RENDER LOGIN
   if (!user) return (
     <div className="min-h-screen w-full bg-cream flex items-center justify-center p-6">
       <div className="bg-white/90 p-10 rounded-3xl shadow-xl w-full max-w-md border border-coffee/20 backdrop-blur-sm">
@@ -187,10 +180,8 @@ export default function App() {
     </div>
   );
 
-  // RENDER DASHBOARD
   return (
     <div className="min-h-screen w-full bg-cream font-sans text-coffee flex flex-col">
-      {/* NAVBAR */}
       <nav className="bg-coffee text-cream sticky top-0 z-40 shadow-lg w-full">
         <div className="w-full px-4 md:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -205,9 +196,7 @@ export default function App() {
             </div>
           </div>
           <div className="flex gap-2">
-             {/* SOLO ADMIN VE EL BOTÓN DE USUARIOS */}
              {user.role === 'admin' && <button onClick={()=>setView('users')} className={`p-2 rounded-full ${view==='users'?'bg-cream text-coffee':'hover:bg-white/10'}`}><Users size={20}/></button>}
-             
              <button onClick={()=>setView('history')} className={`p-2 rounded-full ${view==='history'?'bg-cream text-coffee':'hover:bg-white/10'}`}><History size={20}/></button>
              <button onClick={()=>setView('inventory')} className={`p-2 rounded-full ${view==='inventory'?'bg-cream text-coffee':'hover:bg-white/10'}`}><Package size={20}/></button>
              <button onClick={()=>setUser(null)} className="p-2 hover:bg-red-500/20 text-red-200 rounded-full"><LogOut size={20}/></button>
@@ -215,10 +204,8 @@ export default function App() {
         </div>
       </nav>
 
-      {/* MAIN */}
       <main className="flex-1 w-full px-4 md:px-8 py-6">
         
-        {/* VISTA: USUARIOS (PROTEGIDA SOLO PARA ADMIN) */}
         {view === 'users' && user.role === 'admin' && (
           <div className="bg-white/80 p-6 rounded-[2.5rem] shadow-sm border border-white max-w-7xl mx-auto">
             <h2 className="font-serif text-3xl font-bold mb-6 flex items-center gap-2"><Users/> Gestión de Personal</h2>
@@ -240,7 +227,6 @@ export default function App() {
                 </form>
               </div>
               <div className="md:col-span-2 space-y-3">
-                {usersList.length === 0 && <p>Cargando usuarios...</p>}
                 {usersList.map(u => (
                   <div key={u.id} className="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center gap-3">
@@ -260,11 +246,9 @@ export default function App() {
           </div>
         )}
 
-        {/* VISTA: INVENTARIO */}
         {view === 'inventory' && (
           <>
             <div className="flex justify-center gap-2 mb-6 overflow-x-auto py-2">
-              {/* PESTAÑA TODOS AGREGADA */}
               {['todos', 'envases', 'esencias', 'insumos'].map(tab => (
                 <button key={tab} onClick={()=>setActiveTab(tab)} 
                   className={`px-6 py-2 rounded-full capitalize font-bold transition-all shadow-sm ${activeTab===tab ? 'bg-coffee text-cream scale-105' : 'bg-white/60 text-coffee hover:bg-white'}`}>
@@ -273,7 +257,6 @@ export default function App() {
               ))}
             </div>
 
-            {/* BARRA SUPERIOR (BUSCAR Y CREAR) */}
             <div className="flex flex-col md:flex-row gap-4 mb-8">
                <div className="relative flex-1">
                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-coffee/40" size={20}/>
@@ -285,7 +268,6 @@ export default function App() {
                  />
                </div>
                
-               {/* FORMULARIO DE CREAR (Ahora visible para ADMIN y COLABORADOR) */}
                {canEdit && (
                 <form onSubmit={handleCreateItem} className="bg-white p-2 pl-4 rounded-3xl shadow-sm flex gap-2 items-center border border-white">
                   <span className="text-xs font-bold text-coffee/50 uppercase mr-2 hidden md:inline">Nuevo:</span>
@@ -304,7 +286,6 @@ export default function App() {
                )}
             </div>
 
-            {/* GRID DE PRODUCTOS */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredItems.map(item => (
                 <div key={item.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm relative group hover:shadow-xl transition-all border border-transparent hover:border-coffee/10">
@@ -330,10 +311,9 @@ export default function App() {
                     <>
                       <div className="flex justify-between items-start mb-4 pl-1">
                         <div className="flex items-center gap-2">
-                          {/* ÍCONO SEGÚN TIPO PARA IDENTIFICAR EN VISTA 'TODOS' */}
                           {activeTab === 'todos' && (
                              <div className="w-8 h-8 rounded-full bg-cream/30 flex items-center justify-center text-coffee/60">
-                                {item.type==='esencias'?<LayoutGrid size={16}/>:item.type==='envases'?<Package size={16}/>:<Beaker size={16}/>}
+                                {item.type==='esencias'?<Droplet size={16}/>:item.type==='envases'?<Package size={16}/>:<Beaker size={16}/>}
                              </div>
                           )}
                           <div>
@@ -356,7 +336,6 @@ export default function App() {
                         </div>
                       )}
 
-                      {/* EDITAR/BORRAR VISIBLE PARA ADMIN Y COLABORADOR */}
                       {canEdit && (
                         <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={()=>setEditItem(item)} className="p-2 bg-white text-coffee hover:bg-cream rounded-full shadow-sm" title="Editar"><Edit2 size={14}/></button>
