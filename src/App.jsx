@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, increment, serverTimestamp, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { Plus, Minus, Search, Package, Users, History, LogOut, Trash2, Edit2, Save, X, Shield, Lock, Menu } from 'lucide-react';
+import { Plus, Minus, Search, Package, Users, History, LogOut, Trash2, Edit2, Save, X, Shield, Lock, LayoutGrid } from 'lucide-react';
 
 // --- CONFIGURACIÓN FIREBASE ---
 const firebaseConfig = {
@@ -21,7 +21,7 @@ const auth = getAuth(app);
 export default function App() {
   const [user, setUser] = useState(null); 
   const [view, setView] = useState('login'); 
-  const [activeTab, setActiveTab] = useState('envases'); 
+  const [activeTab, setActiveTab] = useState('todos'); // ¡AHORA INICIA EN TODOS!
   
   const [items, setItems] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -88,7 +88,6 @@ export default function App() {
   };
 
   // --- LÓGICA DE PERMISOS ---
-  // Admin y Colaborador pueden editar/crear. Invitado no.
   const canEdit = user?.role === 'admin' || user?.role === 'colaborador';
 
   // CREAR ITEM
@@ -100,7 +99,8 @@ export default function App() {
       await addDoc(collection(db, "products"), {
         name: newItem.name, type: newItem.type, unit: newItem.unit, stock: 0
       });
-      setNewItem({ name: '', unit: 'grs', type: activeTab }); 
+      // Reseteamos siempre a 'envases' para evitar errores si estamos en la pestaña 'todos'
+      setNewItem({ name: '', unit: 'grs', type: 'envases' }); 
       alert("Ítem creado correctamente");
     } catch (e) { alert("Error: " + e.message); }
   };
@@ -161,7 +161,12 @@ export default function App() {
     if (confirm("¿Borrar producto?")) await deleteDoc(doc(db, "products", id));
   };
 
-  const filteredItems = items.filter(i => i.type === activeTab && i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  // --- FILTRO MAESTRO ---
+  // Si activeTab es 'todos', pasa todo lo que coincida con el nombre. Si no, filtra por tipo.
+  const filteredItems = items.filter(i => 
+    (activeTab === 'todos' || i.type === activeTab) && 
+    i.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // RENDER LOGIN
   if (!user) return (
@@ -259,7 +264,8 @@ export default function App() {
         {view === 'inventory' && (
           <>
             <div className="flex justify-center gap-2 mb-6 overflow-x-auto py-2">
-              {['envases', 'esencias', 'insumos'].map(tab => (
+              {/* PESTAÑA TODOS AGREGADA */}
+              {['todos', 'envases', 'esencias', 'insumos'].map(tab => (
                 <button key={tab} onClick={()=>setActiveTab(tab)} 
                   className={`px-6 py-2 rounded-full capitalize font-bold transition-all shadow-sm ${activeTab===tab ? 'bg-coffee text-cream scale-105' : 'bg-white/60 text-coffee hover:bg-white'}`}>
                   {tab}
@@ -323,9 +329,17 @@ export default function App() {
                   ) : (
                     <>
                       <div className="flex justify-between items-start mb-4 pl-1">
-                        <div>
-                          <h3 className="font-serif text-xl font-bold text-coffee leading-tight">{item.name}</h3>
-                          <span className="text-[10px] font-sans font-bold bg-cream/50 text-coffee px-2 py-0.5 rounded-md mt-1 inline-block uppercase tracking-wider">{item.unit}</span>
+                        <div className="flex items-center gap-2">
+                          {/* ÍCONO SEGÚN TIPO PARA IDENTIFICAR EN VISTA 'TODOS' */}
+                          {activeTab === 'todos' && (
+                             <div className="w-8 h-8 rounded-full bg-cream/30 flex items-center justify-center text-coffee/60">
+                                {item.type==='esencias'?<LayoutGrid size={16}/>:item.type==='envases'?<Package size={16}/>:<Beaker size={16}/>}
+                             </div>
+                          )}
+                          <div>
+                            <h3 className="font-serif text-xl font-bold text-coffee leading-tight">{item.name}</h3>
+                            <span className="text-[10px] font-sans font-bold bg-cream/50 text-coffee px-2 py-0.5 rounded-md mt-1 inline-block uppercase tracking-wider">{item.unit}</span>
+                          </div>
                         </div>
                         <div className="text-right">
                           <span className={`font-serif text-4xl font-bold block ${item.stock < 0 ? 'text-red-500' : 'text-coffee'}`}>{item.stock}</span>
